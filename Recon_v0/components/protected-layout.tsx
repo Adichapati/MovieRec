@@ -1,3 +1,5 @@
+
+
 "use client"
 
 import type React from "react"
@@ -16,12 +18,7 @@ export function ProtectedLayout({ children }: { children: React.ReactNode }) {
     }
   }, [status, router])
 
-  // While checking session
-  if (status === "loading") {
-    return null
-  }
-
-  // Not logged in → go to login
+  if (status === "loading") return null
   if (!session) return null
 
   return (
