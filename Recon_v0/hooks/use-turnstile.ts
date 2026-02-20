@@ -12,7 +12,7 @@
  * This hook renders nothing visible — the widget is invisible / managed mode.
  */
 
-import { useCallback, useRef, useEffect } from "react"
+import { useCallback } from "react"
 import { getTurnstileToken } from "@/lib/turnstile-client"
 
 export function useTurnstile() {
