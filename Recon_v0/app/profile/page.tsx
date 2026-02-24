@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { ProtectedLayout } from "@/components/protected-layout"
 import { MovieGrid } from "@/components/movie-grid"
 import { MovieGridSkeleton } from "@/components/movie-skeleton"
@@ -17,6 +17,48 @@ type GenreStats = { name: string; count: number }
 
 const TMDB_POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500"
 const TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w1280"
+
+/* ── Preference quiz options (shared with onboarding) ── */
+
+const ALL_GENRES = [
+  "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
+  "Drama", "Family", "Fantasy", "History", "Horror", "Music",
+  "Mystery", "Romance", "Science Fiction", "Thriller", "War", "Western",
+]
+
+const ALL_MOODS = [
+  "Feel-good", "Thought-provoking", "Intense", "Relaxing", "Exciting",
+  "Emotional", "Dark", "Lighthearted", "Suspenseful", "Inspiring",
+]
+
+const ERA_OPTIONS = [
+  { value: "classic", label: "Classic (pre-1980)" },
+  { value: "retro", label: "Retro (1980–1999)" },
+  { value: "modern", label: "Modern (2000–2015)" },
+  { value: "recent", label: "Recent (2016+)" },
+  { value: "any", label: "No preference" },
+]
+
+const PACING_OPTIONS = [
+  { value: "slow", label: "Slow burn" },
+  { value: "medium", label: "Balanced" },
+  { value: "fast", label: "Fast-paced" },
+]
+
+const POPULARITY_OPTIONS = [
+  { value: "blockbuster", label: "Blockbusters" },
+  { value: "mainstream", label: "Mainstream" },
+  { value: "hidden", label: "Hidden gems" },
+  { value: "any", label: "No preference" },
+]
+
+type SavedPreferences = {
+  genres: string[]
+  moods: string[]
+  era: string[]
+  pacing: string
+  popularity: string
+}
 
 function toTmdbUrl(path: unknown, kind: "poster" | "backdrop") {
   if (!path || typeof path !== "string") return ""
@@ -91,6 +133,16 @@ export default function ProfilePage() {
   const [completedCount, setCompletedCount] = useState(0)
   const [completedTopGenres, setCompletedTopGenres] = useState<GenreStats[]>([])
   const [isLoadingInsights, setIsLoadingInsights] = useState(true)
+
+  // Recalibrate preferences state
+  const [showRecalibrate, setShowRecalibrate] = useState(false)
+  const [savedPrefs, setSavedPrefs] = useState<SavedPreferences | null>(null)
+  const [editPrefs, setEditPrefs] = useState<SavedPreferences>({
+    genres: [], moods: [], era: [], pacing: "", popularity: "",
+  })
+  const [isLoadingPrefs, setIsLoadingPrefs] = useState(false)
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false)
+  const [recalStep, setRecalStep] = useState(0) // 0=genres, 1=moods, 2=params
 
   useEffect(() => {
     let cancelled = false
@@ -225,6 +277,96 @@ export default function ProfilePage() {
       setTimeout(() => setTokenCopied(false), 2000)
     }
   }
+
+  /* ── Recalibrate preference handlers ──────────────── */
+
+  const openRecalibrate = useCallback(async () => {
+    setShowRecalibrate(true)
+    setRecalStep(0)
+    setIsLoadingPrefs(true)
+
+    try {
+      const res = await fetch("/api/preferences")
+      const data = await res.json()
+      const prefs: SavedPreferences = {
+        genres: Array.isArray(data.genres) ? data.genres : [],
+        moods: Array.isArray(data.moods) ? data.moods : [],
+        era: Array.isArray(data.era) ? data.era : [],
+        pacing: typeof data.pacing === "string" ? data.pacing : "",
+        popularity: typeof data.popularity === "string" ? data.popularity : "",
+      }
+      setSavedPrefs(prefs)
+      setEditPrefs(prefs)
+    } catch {
+      toast({ title: "Error", description: "Failed to load preferences.", variant: "destructive" })
+      setShowRecalibrate(false)
+    } finally {
+      setIsLoadingPrefs(false)
+    }
+  }, [])
+
+  const toggleRecalGenre = useCallback((genre: string) => {
+    setEditPrefs((prev) => ({
+      ...prev,
+      genres: prev.genres.includes(genre) ? prev.genres.filter((g) => g !== genre) : [...prev.genres, genre],
+    }))
+  }, [])
+
+  const toggleRecalMood = useCallback((mood: string) => {
+    setEditPrefs((prev) => ({
+      ...prev,
+      moods: prev.moods.includes(mood) ? prev.moods.filter((m) => m !== mood) : [...prev.moods, mood],
+    }))
+  }, [])
+
+  const toggleRecalEra = useCallback((era: string) => {
+    setEditPrefs((prev) => ({
+      ...prev,
+      era: prev.era.includes(era) ? prev.era.filter((e) => e !== era) : [...prev.era, era],
+    }))
+  }, [])
+
+  const saveRecalibration = useCallback(async () => {
+    if (editPrefs.genres.length === 0) {
+      toast({ title: "Error", description: "Select at least one genre.", variant: "destructive" })
+      return
+    }
+    if (editPrefs.moods.length === 0) {
+      toast({ title: "Error", description: "Select at least one mood.", variant: "destructive" })
+      return
+    }
+    if (editPrefs.era.length === 0 || !editPrefs.pacing || !editPrefs.popularity) {
+      toast({ title: "Error", description: "Complete all viewing parameters.", variant: "destructive" })
+      return
+    }
+
+    setIsSavingPrefs(true)
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...editPrefs, completed: true }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+
+      setSavedPrefs(editPrefs)
+      setShowRecalibrate(false)
+      toast({ title: "Preferences recalibrated", description: "Your recommendations will now reflect the new settings." })
+    } catch {
+      toast({ title: "Error", description: "Failed to save preferences.", variant: "destructive" })
+    } finally {
+      setIsSavingPrefs(false)
+    }
+  }, [editPrefs])
+
+  const recalCanProceed = useCallback(() => {
+    switch (recalStep) {
+      case 0: return editPrefs.genres.length > 0
+      case 1: return editPrefs.moods.length > 0
+      case 2: return editPrefs.era.length > 0 && !!editPrefs.pacing && !!editPrefs.popularity
+      default: return false
+    }
+  }, [recalStep, editPrefs])
 
   const recentItems = useMemo(() => {
     return [...watchlistItems]
@@ -383,6 +525,247 @@ export default function ProfilePage() {
                 </p>
               </div>
             )}
+
+            {/* ── Recalibrate Preferences ──────────────── */}
+            <div className="mt-6">
+              {!showRecalibrate ? (
+                <button
+                  onClick={openRecalibrate}
+                  className="group flex w-full items-center gap-3 border border-dashed border-border/50 bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-card/30"
+                >
+                  <div className="flex size-8 shrink-0 items-center justify-center border border-primary/30 bg-primary/5 text-primary transition-colors group-hover:border-primary group-hover:bg-primary/10">
+                    <span className="text-sm">⟳</span>
+                  </div>
+                  <div>
+                    <p className="font-retro text-xs font-semibold uppercase tracking-wider text-foreground">
+                      Recalibrate Preferences
+                    </p>
+                    <p className="font-retro mt-0.5 text-[10px] text-muted-foreground">
+                      Taste evolves. Re-tune your genre, mood, and viewing parameters.
+                    </p>
+                  </div>
+                  <span className="ml-auto font-retro text-[10px] text-muted-foreground/40 transition-colors group-hover:text-primary">
+                    ▸
+                  </span>
+                </button>
+              ) : (
+                <div className="border border-primary/20 bg-card/20">
+                  {/* Terminal header */}
+                  <div className="flex items-center justify-between border-b border-primary/10 bg-primary/5 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block size-2 animate-pulse rounded-full bg-primary" />
+                      <span className="font-retro text-[10px] uppercase tracking-widest text-primary">
+                        sys.recalibrate
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowRecalibrate(false)}
+                      className="font-retro text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      [ESC]
+                    </button>
+                  </div>
+
+                  {isLoadingPrefs ? (
+                    <div className="p-4">
+                      <p className="font-retro text-xs text-muted-foreground animate-pulse">
+                        &gt; Loading current preference matrix...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-4 space-y-4">
+                      {/* Step indicator */}
+                      <div className="flex items-center gap-1">
+                        {["GENRES", "MOODS", "PARAMS"].map((label, i) => (
+                          <button
+                            key={label}
+                            onClick={() => setRecalStep(i)}
+                            className={`font-retro text-[10px] uppercase tracking-wider px-2 py-1 transition-colors ${
+                              recalStep === i
+                                ? "bg-primary/15 text-primary border-b border-primary"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Step 0: Genres */}
+                      {recalStep === 0 && (
+                        <div className="space-y-3">
+                          <p className="font-retro text-xs text-muted-foreground">
+                            &gt; SELECT PREFERRED GENRES <span className="text-primary/50">({editPrefs.genres.length} selected)</span>
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALL_GENRES.map((genre) => {
+                              const active = editPrefs.genres.includes(genre)
+                              return (
+                                <button
+                                  key={genre}
+                                  onClick={() => toggleRecalGenre(genre)}
+                                  className={`font-retro text-[10px] uppercase tracking-wider px-2.5 py-1.5 border transition-all ${
+                                    active
+                                      ? "border-primary bg-primary/15 text-primary"
+                                      : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                                  }`}
+                                >
+                                  {active ? "■" : "□"} {genre}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 1: Moods */}
+                      {recalStep === 1 && (
+                        <div className="space-y-3">
+                          <p className="font-retro text-xs text-muted-foreground">
+                            &gt; SELECT MOOD PREFERENCES <span className="text-primary/50">({editPrefs.moods.length} selected)</span>
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ALL_MOODS.map((mood) => {
+                              const active = editPrefs.moods.includes(mood)
+                              return (
+                                <button
+                                  key={mood}
+                                  onClick={() => toggleRecalMood(mood)}
+                                  className={`font-retro text-[10px] uppercase tracking-wider px-2.5 py-1.5 border transition-all ${
+                                    active
+                                      ? "border-primary bg-primary/15 text-primary"
+                                      : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                                  }`}
+                                >
+                                  {active ? "■" : "□"} {mood}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Viewing Parameters */}
+                      {recalStep === 2 && (
+                        <div className="space-y-4">
+                          <p className="font-retro text-xs text-muted-foreground">&gt; CONFIGURE VIEWING PARAMETERS</p>
+
+                          {/* Era */}
+                          <div className="space-y-2">
+                            <p className="font-retro text-[10px] uppercase tracking-wider text-muted-foreground/60">Era</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ERA_OPTIONS.map((opt) => {
+                                const active = editPrefs.era.includes(opt.value)
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    onClick={() => toggleRecalEra(opt.value)}
+                                    className={`font-retro text-[10px] uppercase tracking-wider px-2.5 py-1.5 border transition-all ${
+                                      active
+                                        ? "border-primary bg-primary/15 text-primary"
+                                        : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                                    }`}
+                                  >
+                                    {active ? "■" : "□"} {opt.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Pacing */}
+                          <div className="space-y-2">
+                            <p className="font-retro text-[10px] uppercase tracking-wider text-muted-foreground/60">Pacing</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {PACING_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => setEditPrefs((p) => ({ ...p, pacing: opt.value }))}
+                                  className={`font-retro text-[10px] uppercase tracking-wider px-2.5 py-1.5 border transition-all ${
+                                    editPrefs.pacing === opt.value
+                                      ? "border-primary bg-primary/15 text-primary"
+                                      : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                                  }`}
+                                >
+                                  {editPrefs.pacing === opt.value ? "●" : "○"} {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Popularity */}
+                          <div className="space-y-2">
+                            <p className="font-retro text-[10px] uppercase tracking-wider text-muted-foreground/60">Popularity</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {POPULARITY_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => setEditPrefs((p) => ({ ...p, popularity: opt.value }))}
+                                  className={`font-retro text-[10px] uppercase tracking-wider px-2.5 py-1.5 border transition-all ${
+                                    editPrefs.popularity === opt.value
+                                      ? "border-primary bg-primary/15 text-primary"
+                                      : "border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                                  }`}
+                                >
+                                  {editPrefs.popularity === opt.value ? "●" : "○"} {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Navigation + save */}
+                      <div className="flex items-center gap-2 border-t border-border/20 pt-3">
+                        {recalStep > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRecalStep((s) => s - 1)}
+                          >
+                            <span className="font-retro text-[10px] uppercase tracking-wider">◂ Back</span>
+                          </Button>
+                        )}
+                        {recalStep < 2 ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRecalStep((s) => s + 1)}
+                            disabled={!recalCanProceed()}
+                          >
+                            <span className="font-retro text-[10px] uppercase tracking-wider">Next ▸</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={saveRecalibration}
+                            disabled={isSavingPrefs || !recalCanProceed()}
+                          >
+                            <span className="font-retro text-[10px] uppercase tracking-wider">
+                              {isSavingPrefs ? "APPLYING..." : "▸ APPLY RECALIBRATION"}
+                            </span>
+                          </Button>
+                        )}
+
+                        {/* Change summary */}
+                        {savedPrefs && (
+                          <span className="ml-auto font-retro text-[10px] text-muted-foreground/40">
+                            {editPrefs.genres.length !== savedPrefs.genres.length ||
+                            editPrefs.moods.length !== savedPrefs.moods.length ||
+                            editPrefs.pacing !== savedPrefs.pacing ||
+                            editPrefs.popularity !== savedPrefs.popularity ||
+                            JSON.stringify(editPrefs.era) !== JSON.stringify(savedPrefs.era)
+                              ? "MODIFIED"
+                              : "NO CHANGES"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </section>
 
           <div className="my-6 border-t border-border/20" />

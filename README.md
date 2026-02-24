@@ -1,8 +1,10 @@
 # Recon - Movie Recommendation App
 
-A modern movie discovery and recommendation platform built with Next.js, featuring personalized recommendations, watchlist management, completed-movie tracking, and a cinematic streaming-style UI.
+A modern movie discovery and recommendation platform built with Next.js, featuring personalized recommendations, watchlist management, completed-movie tracking, a Chrome extension for automatic detection, and a cinematic retro-terminal UI.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
+**Live at [www.sprake.lol](https://www.sprake.lol)**
+
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://www.sprake.lol)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
 
@@ -15,8 +17,11 @@ A modern movie discovery and recommendation platform built with Next.js, featuri
 - 🎯 Personalized recommendations powered by quiz preferences and watch history
 - 📊 Adaptive recommendation engine — quiz influence decays as you watch more movies
 - 📈 Viewing Insights on your profile (top genres, influence breakdown)
+- ⟳ Recalibrate preferences inline from your profile — no need to redo the full quiz
+- 🧩 **Chrome Extension** — automatically detects movies on Netflix, Prime Video, and any streaming site
+- 🔑 Token-based extension auth for secure cross-origin syncing
 - 🔐 Authentication via Google OAuth or email/password
-- 🌙 Dark theme with cinematic UI
+- 🌙 Dark retro-terminal theme with cinematic UI
 - 📱 Fully responsive design
 
 ## Pages
@@ -29,7 +34,7 @@ A modern movie discovery and recommendation platform built with Next.js, featuri
 | `/movie/[id]` | Movie details + per-movie recommendations |
 | `/watchlist` | Movies saved to watch later |
 | `/completed` | Movies you've watched |
-| `/profile` | User info, viewing insights, and watchlist overview |
+| `/profile` | User info, viewing insights, preference recalibration, and extension setup |
 | `/onboarding/preferences` | Quiz-based preference setup |
 | `/login` | Sign in |
 | `/signup` | Create account |
@@ -61,6 +66,36 @@ completedWeight = 1 − quizWeight
 
 This is applied consistently across both `/api/movies/recommend/[id]` (per-movie) and `/api/recommendations` (homepage).
 
+## Chrome Extension
+
+The **Recon Chrome Extension** ([GitHub repo](https://github.com/Adichapati/Recon_ext)) automatically detects movies playing on streaming sites and syncs them to your Recon watchlist.
+
+### How it works
+
+1. **Content script** runs on every page and watches for `<video>` elements
+2. Platform-specific detection for **Netflix** (URL-based) and **Prime Video** (MutationObserver)
+3. **Generic mode** works on any site with a video player (pstream, 123movies, etc.)
+4. Extracts the movie title from DOM elements, `aria-label`, or `document.title`
+5. Smart title cleaning strips quality tags, site names, and streaming noise
+6. Year extraction from meta tags and page text for accurate TMDB matching
+7. **Badge indicator** on the extension icon when a movie is detected
+8. Popup lets you **Add to Watchlist**, **Mark Completed**, or **Ignore**
+
+### Install
+
+1. Clone the [extension repo](https://github.com/Adichapati/Recon_ext)
+2. Open `chrome://extensions` → enable **Developer mode**
+3. Click **Load unpacked** → select the cloned folder
+
+### Connect to your account
+
+1. Go to your **Profile** page on [sprake.lol](https://www.sprake.lol/profile)
+2. Click **Generate Token** under the Chrome Extension section
+3. Copy the token
+4. Click the Recon extension icon → ⚙ gear → paste token → **Save**
+
+The extension authenticates via `Authorization: Bearer <token>` headers. Tokens are SHA-256 hashed in the database.
+
 ## Tech Stack
 
 - **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS v4
@@ -80,26 +115,35 @@ MovieRec/
 │   │   │   ├── recommendations/ # Homepage personalised recommendations
 │   │   │   ├── watchlist/       # Watchlist CRUD + status management
 │   │   │   ├── preferences/     # User quiz preferences
+│   │   │   ├── extension/       # Chrome extension endpoints
+│   │   │   │   ├── token/       # Generate / revoke API tokens
+│   │   │   │   └── watchlist/   # Extension watchlist sync (token auth)
 │   │   │   └── signup/          # Account creation
 │   │   ├── home/                # Authenticated homepage
 │   │   ├── movie/[id]/          # Movie detail page
 │   │   ├── search/              # Search page
 │   │   ├── watchlist/           # Watchlist page (status = "watchlist")
 │   │   ├── completed/           # Completed movies page (status = "completed")
-│   │   ├── profile/             # Profile + Viewing Insights
+│   │   ├── profile/             # Profile, Viewing Insights, Recalibrate, Extension setup
 │   │   ├── onboarding/          # Preference quiz
 │   │   ├── login/               # Login page
 │   │   └── signup/              # Signup page
 │   ├── components/              # React components (MovieCard, Navbar, etc.)
 │   ├── lib/                     # Utilities (watchlist, genres, TMDB, Supabase)
 │   └── hooks/                   # Custom hooks (useToast)
-└── backend/                     # Flask backend (optional)
+├── recon-extension/             # Chrome Extension (MV3)
+│   ├── manifest.json            # Extension manifest
+│   ├── background.js            # Service worker (sync + badge)
+│   ├── content.js               # Content script (video detection)
+│   ├── popup.html/css/js        # Extension popup UI
+│   └── icon-128.png             # Extension icon
+└── backend/                     # Flask backend (optional, legacy)
     └── app.py
 ```
 
 ## Database Schema
 
-The app uses four Supabase tables:
+The app uses five Supabase tables:
 
 | Table | Key Columns |
 |-------|-------------|
@@ -107,15 +151,27 @@ The app uses four Supabase tables:
 | `user_credentials` | `user_id`, `password_hash` |
 | `user_preferences` | `user_id`, `genres`, `moods`, `era`, `pacing`, `popularity`, `completed` |
 | `watchlist` | `user_id`, `movie_id`, `movie_title`, `poster_path`, `status`, `created_at` |
+| `extension_tokens` | `user_id`, `token_hash`, `created_at` |
 
 The `watchlist.status` column supports `"watchlist"` (default) and `"completed"`.
 
-### Migration
+### Migrations
 
 If upgrading from a version without the `status` column:
 
 ```sql
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'watchlist';
+```
+
+To add Chrome extension token support:
+
+```sql
+CREATE TABLE IF NOT EXISTS public.extension_tokens (
+  user_id uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.extension_tokens ENABLE ROW LEVEL SECURITY;
 ```
 
 ## API Endpoints
@@ -133,8 +189,12 @@ ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'wat
 | PATCH | `/api/watchlist` | Update status (watchlist ↔ completed) |
 | DELETE | `/api/watchlist` | Remove from watchlist |
 | GET | `/api/preferences` | User quiz preferences |
-| POST | `/api/preferences` | Save quiz preferences |
+| POST | `/api/preferences` | Save / recalibrate quiz preferences |
 | POST | `/api/signup` | Create account |
+| GET | `/api/extension/token` | Check if extension token exists |
+| POST | `/api/extension/token` | Generate new extension API token |
+| DELETE | `/api/extension/token` | Revoke extension token |
+| POST | `/api/extension/watchlist` | Add movie from Chrome extension (token auth) |
 
 ## Local Development
 
