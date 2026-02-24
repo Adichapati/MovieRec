@@ -63,6 +63,8 @@
   /* ── Shared state ─────────────────────────────────────── */
 
   var lastTitle = null
+  var lastUrl = location.href
+  var lastDocTitle = document.title
 
   /**
    * Try to find a 4-digit year on the page (from meta tags, nearby text, etc.)
@@ -469,9 +471,60 @@
     }
   }
 
+  /* ── URL / title change monitor ───────────────────────── */
+
+  /**
+   * Poll for URL or document.title changes every 2 seconds.
+   * When either changes, reset the detection state so the
+   * script re-extracts the title for the new movie.
+   */
+  function checkForNavigation() {
+    if (!contextValid) return
+    var currentUrl = location.href
+    var currentDocTitle = document.title
+
+    // URL changed — definitely a new page / movie
+    if (currentUrl !== lastUrl) {
+      console.log("[Recon] URL changed:", lastUrl, "→", currentUrl)
+      lastUrl = currentUrl
+      lastDocTitle = currentDocTitle
+      resetDetectionState()
+      return
+    }
+
+    // document.title changed while video is playing — likely new movie
+    // (many sites change title without changing URL e.g. auto-play)
+    if (currentDocTitle !== lastDocTitle && lastTitle) {
+      console.log("[Recon] document.title changed:", lastDocTitle, "→", currentDocTitle)
+      lastDocTitle = currentDocTitle
+      resetDetectionState()
+    }
+  }
+
+  function resetDetectionState() {
+    lastTitle = null
+    // Reset platform-specific state
+    if (source === "prime") {
+      primeSessionUrl = null
+      primeWasPlaying = false
+      if (primeRetryTimer) { clearInterval(primeRetryTimer); primeRetryTimer = null }
+      primeCheckPlayback()
+    } else if (source !== "netflix") {
+      genericSessionUrl = null
+      genericWasPlaying = false
+      if (genericRetryTimer) { clearInterval(genericRetryTimer); genericRetryTimer = null }
+      genericCheckPlayback()
+    }
+    // Netflix is already poll-based (detectNetflix runs every 2s)
+  }
+
   /* ── Bootstrap per-platform ───────────────────────────── */
 
   var source = getSource()
+
+  // Start navigation monitor for all platforms
+  var navInterval = setInterval(checkForNavigation, 2000)
+  cleanupFns.push(function () { clearInterval(navInterval) })
 
   if (source === "netflix") {
     /* ── Netflix ──────────────────────────────────────── */

@@ -37,7 +37,17 @@
     if (!changes.recon_detected) return
 
     const detection = changes.recon_detected.newValue
-    if (!detection || !detection.title) return
+
+    // Update badge based on detection state
+    if (!detection || !detection.title) {
+      chrome.action.setBadgeText({ text: "" })
+      return
+    }
+
+    // Show badge indicator when a movie is detected
+    chrome.action.setBadgeText({ text: "●" })
+    chrome.action.setBadgeBackgroundColor({ color: "#c8a832" })
+    chrome.action.setTitle({ title: "Recon — " + detection.title })
 
     // Build a stable fingerprint so we don't re-sync the same movie
     const fingerprint = detection.title + "|" + detection.source
