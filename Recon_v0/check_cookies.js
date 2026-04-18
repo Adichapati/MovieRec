@@ -1,6 +1,8 @@
 const https = require('https');
 
-https.get('https://www.sprake.lol/api/auth/csrf', (res) => {
+const baseUrl = 'https://recon-six-bay.vercel.app';
+
+https.get(`${baseUrl}/api/auth/csrf`, (res) => {
   console.log('Status:', res.statusCode);
   console.log('Headers:', JSON.stringify(res.headers, null, 2));
   let data = '';

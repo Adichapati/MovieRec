@@ -79,10 +79,10 @@ function replaceScripts(items) {
 
 replaceScripts(obj.item);
 
-// Also set the NEXT_BASE_URL to www.sprake.lol just to be 100% sure we didn't lose it
+// Keep the Postman collection aligned with the current deployed app URL.
 for (let v of obj.variable || []) {
     if (v.key === 'NEXT_BASE_URL') {
-        v.value = 'https://www.sprake.lol'; 
+        v.value = 'https://recon-six-bay.vercel.app'; 
     }
 }
 

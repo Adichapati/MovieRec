@@ -8,8 +8,7 @@
 
   "host_permissions": [
     "<all_urls>",
-    "https://www.sprake.lol/*",
-    "https://sprake.lol/*"
+    "https://recon-six-bay.vercel.app/*"
   ],
 
   "background": {

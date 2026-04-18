@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "NEXT_BASE_URL",
-      "value": "https://www.sprake.lol",
+      "value": "https://recon-six-bay.vercel.app",
       "type": "string"
     },
     {

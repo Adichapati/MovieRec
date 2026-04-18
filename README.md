@@ -2,9 +2,9 @@
 
 A modern movie discovery and recommendation platform built with Next.js, featuring personalized recommendations, watchlist management, completed-movie tracking, a Chrome extension for automatic detection, and a cinematic retro-terminal UI.
 
-**Live at [www.sprake.lol](https://www.sprake.lol)**
+**Live at [recon-six-bay.vercel.app](https://recon-six-bay.vercel.app)**
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://www.sprake.lol)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://recon-six-bay.vercel.app)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
 
@@ -97,7 +97,7 @@ The **Recon Chrome Extension** ([GitHub repo](https://github.com/Adichapati/Reco
 
 ### Connect to your account
 
-1. Go to your **Profile** page on [sprake.lol](https://www.sprake.lol/profile)
+1. Go to your **Profile** page on [recon-six-bay.vercel.app](https://recon-six-bay.vercel.app/profile)
 2. Click **Generate Token** under the Chrome Extension section
 3. Copy the token
 4. Click the Recon extension icon → ⚙ gear → paste token → **Save**
@@ -279,11 +279,14 @@ If you want to run the legacy Flask backend instead of Next.js TMDB routes:
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXTAUTH_SECRET` | NextAuth.js secret key |
-| `NEXTAUTH_URL` | App URL (e.g., `http://localhost:3000`) |
+| `NEXTAUTH_URL` | App URL. Use `http://localhost:3000` locally and `https://recon-six-bay.vercel.app` in production. |
+| `AUTH_URL` | Optional explicit Auth.js base URL. If set, keep it identical to `NEXTAUTH_URL`. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
 | `BACKEND_URL` | Optional: Flask backend URL |
+
+For the current Vercel deployment, set both `NEXTAUTH_URL` and `AUTH_URL` to `https://recon-six-bay.vercel.app` in your Vercel environment variables. Keep `http://localhost:3000` in `.env.local` when developing locally.
 
 ## Troubleshooting
 

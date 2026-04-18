@@ -21,7 +21,7 @@
   /**
    * Base URL of the Recon Next.js app (Vercel deployment).
    */
-  const API_BASE = "https://www.sprake.lol"
+  const API_BASE = "https://recon-six-bay.vercel.app"
   const ENDPOINT = API_BASE + "/api/extension/watchlist"
 
   /**

@@ -5,10 +5,11 @@ const filePath = path.join(__dirname, 'docs', 'postman-collection.json');
 let data = fs.readFileSync(filePath, 'utf8');
 
 let obj = JSON.parse(data);
+const nextBaseUrl = 'https://recon-six-bay.vercel.app';
 
 for (let v of obj.variable || []) {
     if (v.key === 'NEXT_BASE_URL') {
-        v.value = 'https://replace-with-your-vercel-app.vercel.app'; 
+        v.value = nextBaseUrl;
     } else if (v.key === 'FLASK_BASE_URL') {
         v.value = 'https://replace-with-your-flask-app.onrender.com';
     } else if (v.key === 'SESSION_COOKIE_NAME') {

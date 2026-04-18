@@ -1,15 +1,16 @@
 const https = require('https');
 
-const baseUrl = 'https://www.sprake.lol';
+const baseUrl = 'https://recon-six-bay.vercel.app';
+const base = new URL(baseUrl);
 const email = 'testuser_' + Date.now() + '@example.com'; 
 const password = 'TestPass123!';
 
 function makeRequest(path, method, data, cookies = '') {
     return new Promise((resolve, reject) => {
-        const payload = data ? JSON.stringify(data) : '';
+        let payload = data ? JSON.stringify(data) : '';
         const options = {
-            hostname: 'www.sprake.lol',
-            port: 443,
+            hostname: base.hostname,
+            port: base.port ? Number(base.port) : 443,
             path: path,
             method: method,
             headers: {
@@ -75,7 +76,7 @@ async function run() {
             password: password,
             redirect: 'false',
             json: 'true',
-            callbackUrl: 'https://www.sprake.lol/home'
+            callbackUrl: `${baseUrl}/home`
         };
         const loginRes = await makeRequest('/api/auth/callback/credentials', 'POST', loginPayload, csrfCookie);
         console.log('Login Status:', loginRes.status);
